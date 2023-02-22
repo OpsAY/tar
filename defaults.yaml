@@ -1,0 +1,130 @@
+openresty:
+  directory:
+    software: /data/software/openresty
+    root: /data/wwwroot
+    logs: /data/wwwlogs
+    backup: /data/wwwbackup
+  
+  service:
+    name: nginx
+    base: /usr/local/openresty
+  
+  logrotate:
+    #日志保留天数
+    rotate: 5
+    
+  systemdconfig:
+    user: www
+    group: www
+    uid: 500
+    gid: 500
+    home: /home/www
+    limit_nofile: 1000000
+    limit_nproc: 1000000
+    limit_core: 1000000
+  
+  pkg:
+    downloadurl: https://openresty.org/download/openresty-1.21.4.1.tar.gz
+    name: openresty
+    version: 1.21.4.1
+  
+  module:
+    pcre:
+      downloadurl: http://download.openpkg.org/components/cache/pcre/pcre-8.45.tar.gz
+      version: 8.45 
+      parameter: --with-pcre
+    openssl:
+      downloadurl: https://mirror.math.princeton.edu/pub/openssl/source/old/1.1.1/openssl-1.1.1q.tar.gz
+      version: 1.1.1q  
+      parameter: --with-openssl
+    nginx-module-vts:
+      downloadurl: https://github.com/vozlt/nginx-module-vts/archive/refs/tags/v0.2.1.tar.gz
+      version: 0.2.1
+    ngx_http_geoip2_module:
+      downloadurl: https://github.com/leev/ngx_http_geoip2_module/archive/refs/tags/3.3.tar.gz
+      version: 3.3
+  
+  config:
+    user: www
+    pid: /var/run/nginx.pid
+    worker_processes: auto
+    worker_rlimit_nofile: 51200
+    error_log: /data/wwwlogs/error_nginx.log crit
+    events:
+      use: epoll
+      worker_connections: 51200
+      multi_accept: 'on'
+    http:
+      default_type: application/octet-stream
+      server_names_hash_bucket_size: 128
+      client_header_buffer_size: 32k
+      large_client_header_buffers: 4 32k
+      variables_hash_max_size: 1024
+      variables_hash_bucket_size: 128
+      client_max_body_size: 1024m
+      client_body_buffer_size: 10m
+      charset: utf-8
+      sendfile: 'on'
+      tcp_nopush: 'on'
+      keepalive_timeout: 120
+      server_tokens: 'off'
+      tcp_nodelay: 'on'
+      log_format json: |- 
+        '{"@source":"$server_addr",'
+                            '"timelocal":"$fmt_localtime",'
+                            '"clientip":"$remote_addr",'
+                            '"size":$body_bytes_sent,'
+                            '"responsetime":$request_time,'
+                            '"upstreamtime":"$upstream_response_time",'
+                            '"upstreamaddr":"$upstream_addr",'
+                            '"request_method": "$request_method",'
+                            '"domain":"$host",'
+                            '"url":"$uri",'
+                            '"http_user_agent": "$http_user_agent",'
+                            '"status":$status,'
+                            '"body": "$request_body",'
+                            '"x_forwarded_for":"$http_x_forwarded_for"}'
+      map $host $fmt_localtime: 
+        default: ''''''
+      log_by_lua_block:
+        ngx.var.fmt_localtime: '= ngx.localtime'
+      log_not_found: 'off'
+      fastcgi_connect_timeout: 300
+      fastcgi_send_timeout: 300
+      fastcgi_read_timeout: 300
+      fastcgi_buffer_size: 64k
+      fastcgi_buffers: 4 64k
+      fastcgi_busy_buffers_size: 128k
+      fastcgi_temp_file_write_size: 128k
+      fastcgi_intercept_errors: 'on'
+      '#Gzip Compression': ''
+      gzip: 'on'
+      gzip_buffers: 16 8k
+      gzip_comp_level: 6
+      gzip_http_version: 1.1
+      gzip_min_length: 256
+      gzip_proxied: 'any'
+      gzip_vary: 'on'
+      gzip_types: |-
+        text/xml application/xml application/atom+xml application/rss+xml
+                        application/xhtml+xml image/svg+xml text/javascript application/javascript
+                        application/x-javascript text/x-json application/json application/x-web-app-manifest+json
+                        text/css text/plain text/x-component font/opentype application/x-font-ttf application/vnd.ms-fontobject
+                        image/x-icon
+      gzip_disable: '"MSIE [1-6]\.(?!.*SV1)"'
+      vhost_traffic_status_zone: ''
+      server:
+        listen: 80 default
+        server_name: _
+        access_log: 'off'
+        location /:
+          return: 444
+        location /ng_status:
+          vhost_traffic_status_display: ''
+          vhost_traffic_status_display_format: html
+          allow: 
+            - 10.7.188.209
+          deny: all
+      include:
+        - mime.types
+        - vhost.d/*.conf
